@@ -50,3 +50,4 @@ production build. This occurs quite a lot lately for some reason and because of 
 both shell.nix and default.nix to don't mix things up.
 
 [Bleur Stack]: https://github.com/bleur-org
+# rediska
