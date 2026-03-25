@@ -1,30 +1,67 @@
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/ip.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
-int main(int argc, char **argv)
+static void do_something(int connfd)
 {
-  socklen_t peer_adr_size;
-  struct sockaddr_un my_addr, peer_adr;
+  // read buffer
+  char rbuf[64] = {};
+  ssize_t n = read(connfd, rbuf, sizeof(rbuf) - 1);
 
+  if (n < 0) {
+    printf("read() error");
+    return;
+  }
+
+  printf("client says: %s\n", rbuf);
+
+  char wbuf[] = "Hello  World";
+  write(connfd, &wbuf, strlen(wbuf));
+}
+
+int main()
+{
   int fd = socket(AF_INET, SOCK_STREAM, 0);
-  memset(&my_addr, 0, sizeof(my_addr));
+  if (fd < 0) {
+    printf("socket is not initialized\n");
+  }
 
-  my_addr.sun_family = AF_INET;
+  int val = 1;
+  setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
-  int binding = bind(fd, (struct sockaddr *)&my_addr, sizeof(my_addr));
+  struct sockaddr_in addr = {};
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(1234);
+  addr.sin_addr.s_addr = htonl(0);
 
-  listen(fd, 0);
+  int rv = bind(fd, (const struct sockaddr *)&addr, sizeof(addr));
+  if (rv) {
+    printf("Bind from main: %d", rv);
+  }
+
+  // listen
+  rv = listen(fd, SOMAXCONN);
+  if (rv) {
+    printf("listen()");
+  }
+
   while (1) {
-    peer_adr_size = sizeof(peer_adr);
-    int cfd = accept(fd, (struct sockaddr *)&peer_adr, &peer_adr_size);
+    struct sockaddr_in clietn_addr = {};
+    socklen_t addr_len = sizeof(clietn_addr);
+    int connfd = accept(fd, (struct sockaddr *)&clietn_addr, &addr_len);
+    if (connfd < 0) {
+      continue;
+    }
 
-    printf("the connection: %d", cfd);
+    do_something(connfd);
 
-    close(fd);
+    close(connfd);
   }
 
   return 0;
-} // end of function main
+}
